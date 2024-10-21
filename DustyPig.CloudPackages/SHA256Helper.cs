@@ -3,7 +3,7 @@ using System.IO;
 
 namespace DustyPig.CloudPackages;
 
-class SHA256Helper
+static class SHA256Helper
 {
     public static string Compute(Stream stream)
     {
