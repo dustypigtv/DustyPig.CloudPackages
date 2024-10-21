@@ -3,6 +3,7 @@
 	<PropertyGroup>
 		<TargetFrameworks>net6;net7;net8</TargetFrameworks>
 		<LangVersion>Latest</LangVersion>
+		<NoWarn>$(NoWarn);1591,CS1573,,IDE0090</NoWarn>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -14,6 +15,7 @@
 		<PackageProjectUrl>https://github.com/dustypigtv/DustyPig.CloudPackages</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/dustypigtv/DustyPig.CloudPackages.git</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
+		<NeutralLanguage>en</NeutralLanguage>
 
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
@@ -25,8 +27,6 @@
 
 		<!-- Leave the revision as zero, it will be set by github actions -->
 		<Version>1.0.0.0</Version>
-
-		<DebugType>embedded</DebugType>
 	</PropertyGroup>
 
 	<ItemGroup>
