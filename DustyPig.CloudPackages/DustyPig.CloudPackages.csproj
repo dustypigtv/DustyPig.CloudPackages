@@ -5,4 +5,31 @@
 		<LangVersion>Latest</LangVersion>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<Authors>DustyPig.tv</Authors>
+		<Company>DustyPig.tv</Company>
+		<Description>Library to create simple packages of files that can be installed by .net apps at runtime</Description>
+		<Copyright>DustyPig.tv</Copyright>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/dustypigtv/DustyPig.CloudPackages</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/dustypigtv/DustyPig.CloudPackages.git</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+	</ItemGroup>
+
 </Project>
