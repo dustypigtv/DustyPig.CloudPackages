@@ -1,0 +1,1 @@
+﻿Library to create simple packages of files that can be installed by .net apps at runtime

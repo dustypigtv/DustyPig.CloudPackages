@@ -20,7 +20,7 @@
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
-		<PackageReadmeFile>../README.md</PackageReadmeFile>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<EmbedUntrackedSources>true</EmbedUntrackedSources>
 
 		<!-- Leave the revision as zero, it will be set by github actions -->
@@ -28,11 +28,7 @@
 
 		<DebugType>embedded</DebugType>
 	</PropertyGroup>
-
-	<ItemGroup>
-		<None Include="../README.md" Pack="true" PackagePath="\" />
-	</ItemGroup>
-
+	
 	<ItemGroup>
 		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
 	</ItemGroup>
