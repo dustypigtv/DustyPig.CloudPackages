@@ -22,6 +22,11 @@
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+
+		<!-- Leave the revision as zero, it will be set by github actions -->
+		<Version>1.0.0.0</Version>
+
+		<DebugType>embedded</DebugType>
 	</PropertyGroup>
 
 	<ItemGroup>
