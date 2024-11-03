@@ -136,7 +136,6 @@ static class Installer
                             break;
                     }
 
-                    progress?.Report(new InstallProgress($"Downloading: {file.RelativePath}", 100, 100));
                 }
                 finally
                 {
@@ -151,11 +150,13 @@ static class Installer
                 }
                 stream.Dispose();
 
-
-                totalDownloaded += file.FileSize;
-
                 dstFile.Refresh();
                 dstFile.MoveTo(Path.Combine(dstFile.Directory.FullName, Path.GetFileNameWithoutExtension(dstFile.Name)), true);
+
+
+                totalDownloaded += file.FileSize; 
+                int newTotalProgress = InstallPercent(totalDownloaded + fileDownloaded, totalSize);
+                progress?.Report(new InstallProgress($"Downloading: {file.RelativePath}", 100, newTotalProgress));
             }
 
             totalDownloaded += file.FileSize;
