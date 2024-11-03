@@ -50,7 +50,7 @@ static class Installer
                         lastTotalProgress = newTotalProgress;
                         lastFileProgress = newFileProgress;
                         progress?.Report(new InstallProgress(
-                            file.RelativePath,
+                            $"File: {file.RelativePath}",
                             lastFileProgress,
                             lastTotalProgress
                         ));
