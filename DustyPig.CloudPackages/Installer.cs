@@ -155,8 +155,7 @@ static class Installer
 
 
                 totalDownloaded += file.FileSize; 
-                int newTotalProgress = InstallPercent(totalDownloaded + fileDownloaded, totalSize);
-                progress?.Report(new InstallProgress($"Downloading: {file.RelativePath}", 100, newTotalProgress));
+                progress?.Report(new InstallProgress($"Downloading: {file.RelativePath}", 100, InstallPercent(totalDownloaded + fileDownloaded, totalSize)));
             }
 
             totalDownloaded += file.FileSize;
