@@ -77,6 +77,6 @@ static class Installer
     }
 
     static int InstallPercent(double progress, double size) =>
-        Math.Min(100, Math.Max(0, Convert.ToInt32(progress / size * 100)));
+        Convert.ToInt32(Math.Min(100, Math.Max(0, progress / size * 100)));
 }
 
