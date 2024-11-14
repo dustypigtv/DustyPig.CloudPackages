@@ -9,6 +9,6 @@ static class SHA256Helper
     {
         using var sha256 = System.Security.Cryptography.SHA256.Create();
         var hash = sha256.ComputeHash(stream);
-        return BitConverter.ToString(hash).Replace("-", "");
+        return Convert.ToHexString(hash);
     }
 }
