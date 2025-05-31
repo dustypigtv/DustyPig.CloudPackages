@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -11,9 +12,6 @@ namespace DustyPig.CloudPackages;
 
 static class Installer
 {
-    //1 kb
-    const int BASE_BUFFER_SIZE = 1024;
-
     static HttpClient _client = null;
 
     static HttpClient PrivateHttpClient()
@@ -29,15 +27,15 @@ static class Installer
     public static async Task InstallAsync(HttpClient client, Uri cloudUri, DirectoryInfo root, IProgress<InstallProgress> progress, bool deleteNonPackageFiles, CancellationToken cancellationToken = default)
     {
         progress?.Report(new InstallProgress("Loading package.json", 0, 0));
-        var package = await client.GetFromJsonAsync<Package>(cloudUri, cancellationToken).ConfigureAwait(false);
+        Package package = await client.GetFromJsonAsync<Package>(cloudUri, cancellationToken).ConfigureAwait(false);
 
         double totalSize = package.Files.Sum(f => f.FileSize);
         double totalDownloaded = 0;
 
         if (deleteNonPackageFiles)
         {
-            var localPackageFiles = package.Files.Select(f => Path.Combine(root.FullName, f.RelativePath.Replace('/', Path.DirectorySeparatorChar))).ToList();
-            foreach (var file in root.EnumerateFiles("*", SearchOption.AllDirectories))
+            List<string> localPackageFiles = [.. package.Files.Select(f => Path.Combine(root.FullName, f.RelativePath.Replace('/', Path.DirectorySeparatorChar)))];
+            foreach (FileInfo file in root.EnumerateFiles("*", SearchOption.AllDirectories))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (!localPackageFiles.Any(f => f == file.FullName))
@@ -46,30 +44,8 @@ static class Installer
         }
 
 
-        int multiplier = 1;
-        try
-        {
-            var free = MemoryMetrics.Get().Free;
-            var max = Math.Min(int.MaxValue, free * 0.01);
-
-            while (true)
-            {
-                var tst = multiplier * 2;
-                if (BASE_BUFFER_SIZE * tst < max)
-                    multiplier = tst;
-                else
-                    break;
-
-                //Max out at 1 MB
-                if (multiplier == BASE_BUFFER_SIZE)
-                    break;
-            }
-        }
-        catch { }
-
-
-
-        foreach (var file in package.Files)
+        
+        foreach (PackageFile file in package.Files)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -80,78 +56,66 @@ static class Installer
             if (!file.Installed(root))
             {
                 string fileUri = cloudUri.ToString();
-                fileUri = fileUri[..(fileUri.LastIndexOf('/') + 1)] + $"v{package.Version}/" + file.RelativePath + ".dpcp";
+                fileUri = fileUri[..(fileUri.LastIndexOf('/') + 1)] + $"v{package.Version}/" + file.RelativePath + Constants.PACKAGE_FILE_EXT;
 
-                using var request = new HttpRequestMessage(HttpMethod.Get, fileUri);
-                using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                using HttpRequestMessage request = new (HttpMethod.Get, fileUri);
+                using HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
                 response.EnsureSuccessStatusCode();
 
-                using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+                using Stream contentStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
                 long fileSize = response.Content.Headers.ContentLength ?? -1;
                 long fileDownloaded = 0;
 
-                var dstFile = new FileInfo(Path.Combine(root.FullName, file.RelativePath.Replace('/', Path.DirectorySeparatorChar)) + ".dpcp");
-                dstFile.Directory.Create();
-                if (dstFile.Exists)
-                    dstFile.Delete();
+                FileInfo dstFile = new (Path.Combine(root.FullName, file.RelativePath.Replace('/', Path.DirectorySeparatorChar)));
+                FileInfo tmpFile = new (dstFile.FullName + Constants.PACKAGE_FILE_EXT);
+                tmpFile.Directory.Create();
+                if (tmpFile.Exists)
+                    tmpFile.Delete();
 
 
-                
-                int bufferSize = multiplier * BASE_BUFFER_SIZE;
-                byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+                //4096 is STILL the file stream default buffer size in .net 9 in 2024
+                byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
 
-                bool memoryStream = fileSize > 0 && fileSize <= bufferSize;
-
-                Stream stream = memoryStream ?
-                    new MemoryStream() :
-                    new FileStream(dstFile.FullName, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize, true);
-
-                try
+                await using (FileStream stream = new (tmpFile.FullName, FileMode.Create, FileAccess.Write, FileShare.None, buffer.Length, true))
                 {
-                    while (true)
+                    try
                     {
-                        var read = await contentStream.ReadAsync(new Memory<byte>(buffer), cancellationToken).ConfigureAwait(false);
-                        if (read > 0)
+                        while (true)
+                        {
+                            int read = await contentStream.ReadAsync(new Memory<byte>(buffer), cancellationToken).ConfigureAwait(false);
+                            if (read <= 0)
+                                break; 
+                            
                             await stream.WriteAsync(new ReadOnlyMemory<byte>(buffer, 0, read), cancellationToken).ConfigureAwait(false);
 
-                        if (progress != null)
-                        {
-                            fileDownloaded += read;
-                            int newTotalProgress = InstallPercent(totalDownloaded + fileDownloaded, totalSize);
-                            int newFileProgress = InstallPercent(fileDownloaded, fileSize);
-                            if (newTotalProgress > lastTotalProgress || newFileProgress > lastFileProgress)
+                            if (progress != null)
                             {
-                                progress.Report(new InstallProgress(
-                                     $"Downloading: {file.RelativePath}",
-                                     newFileProgress,
-                                     newTotalProgress
-                                ));
+                                fileDownloaded += read;
+                                int newTotalProgress = InstallPercent(totalDownloaded + fileDownloaded, totalSize);
+                                int newFileProgress = InstallPercent(fileDownloaded, fileSize);
+                                if (newTotalProgress > lastTotalProgress || newFileProgress > lastFileProgress)
+                                {
+                                    progress.Report(new InstallProgress(
+                                         $"Downloading: {file.RelativePath}",
+                                         newFileProgress,
+                                         newTotalProgress
+                                    ));
 
-                                lastTotalProgress = newTotalProgress;
-                                lastFileProgress = newFileProgress;
+                                    lastTotalProgress = newTotalProgress;
+                                    lastFileProgress = newFileProgress;
+                                }
                             }
                         }
 
-                        if (read <= 0)
-                            break;
                     }
-
+                    finally
+                    {
+                        ArrayPool<byte>.Shared.Return(buffer);
+                    }
                 }
-                finally
-                {
-                    ArrayPool<byte>.Shared.Return(buffer);
-                }
 
-
-                if (memoryStream)
-                {
-                    stream.Seek(0, SeekOrigin.Begin);
-                    File.WriteAllBytes(dstFile.FullName, ((MemoryStream)stream).ToArray());
-                }
-                stream.Dispose();
-
-                dstFile.Refresh();
-                dstFile.MoveTo(Path.Combine(dstFile.Directory.FullName, Path.GetFileNameWithoutExtension(dstFile.Name)), true);
+                tmpFile.Refresh();
+                tmpFile.MoveTo(Path.Combine(tmpFile.Directory.FullName, Path.GetFileNameWithoutExtension(tmpFile.Name)), true);
 
 
                 totalDownloaded += file.FileSize; 

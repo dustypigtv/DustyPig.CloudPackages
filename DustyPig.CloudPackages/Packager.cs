@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 
 namespace DustyPig.CloudPackages;
@@ -13,23 +14,22 @@ static class Packager
 
         if (version == null || version == new Version(0, 0))
         {
-            //throw new ArgumentException("Version cannot be null or 0.0", nameof(version));
-            var dt = DateTime.UtcNow;
+            DateTime dt = DateTime.UtcNow;
             version = new Version(dt.Year, dt.Month, dt.Day, dt.Hour * 60 + dt.Minute);
-            Console.WriteLine($"Warning: Version is null or 0.0. Using {version}");
+            Debug.Print($"Warning: Version is null or 0.0. Using {version}");
         }
 
 
         if (outputDirectory.Exists)
             outputDirectory.Delete(true);
 
-        var versionDirectory = new DirectoryInfo(Path.Combine(outputDirectory.FullName, $"v{version}"));
+        DirectoryInfo versionDirectory = new (Path.Combine(outputDirectory.FullName, $"v{version}"));
         versionDirectory.Create();
 
-        var packageFiles = new List<PackageFile>();
+        List<PackageFile> packageFiles = [];
         CreatePackageFiles(sourceDirectory, versionDirectory, packageFiles);
-       
-        var package = new Package
+
+        Package package = new()
         {
             Name = name,
             Version = version.ToString(),
@@ -42,13 +42,13 @@ static class Packager
 
     static void CreatePackageFiles(DirectoryInfo sourceDirectory, DirectoryInfo outputDirectory, List<PackageFile> files, string relativePath = "")
     {
-        foreach (var dir in sourceDirectory.EnumerateDirectories())
+        foreach (DirectoryInfo dir in sourceDirectory.EnumerateDirectories())
             CreatePackageFiles(dir, outputDirectory.CreateSubdirectory(dir.Name), files, $"{relativePath}/{dir.Name}");
 
-        foreach (var file in sourceDirectory.EnumerateFiles())
+        foreach (FileInfo file in sourceDirectory.EnumerateFiles())
         {
-            Console.WriteLine($"Packaging {file.FullName}");
-            using var fs = file.OpenRead();
+            Debug.Print($"Packaging {file.FullName}");
+            using FileStream fs = file.OpenRead();
             files.Add(new PackageFile
             {
                 FileSize = file.Length,
@@ -56,7 +56,7 @@ static class Packager
                 SHA256 = SHA256Helper.Compute(fs)
             });
 
-            var destFile = new FileInfo(Path.Combine(outputDirectory.FullName, file.Name + ".dpcp"));
+            FileInfo destFile = new (Path.Combine(outputDirectory.FullName, file.Name + Constants.PACKAGE_FILE_EXT));
             destFile.Directory.Create();
             file.CopyTo(destFile.FullName, true);
         }
