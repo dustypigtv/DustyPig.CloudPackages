@@ -72,10 +72,9 @@ static class Installer
                 if (tmpFile.Exists)
                     tmpFile.Delete();
 
-
-                //4096 is STILL the file stream default buffer size in .net 9 in 2024
+                
+                //4096 is STILL the file stream default buffer size in .net9 in 2025
                 byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
-
                 await using (FileStream stream = new (tmpFile.FullName, FileMode.Create, FileAccess.Write, FileShare.None, buffer.Length, true))
                 {
                     try
