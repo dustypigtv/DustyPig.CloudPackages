@@ -12,19 +12,7 @@ namespace DustyPig.CloudPackages;
 
 static class Installer
 {
-    static HttpClient _client = null;
-
-    static HttpClient PrivateHttpClient()
-    {
-        _client ??= new();
-        return _client;
-    }
-
-    public static Task InstallAsync(Uri cloudUri, DirectoryInfo root, IProgress<InstallProgress> progress, bool deleteNonPackageFiles, CancellationToken cancellationToken = default) =>
-        InstallAsync(PrivateHttpClient(), cloudUri, root, progress, deleteNonPackageFiles, cancellationToken);
-
-
-    public static async Task InstallAsync(HttpClient client, Uri cloudUri, DirectoryInfo root, IProgress<InstallProgress> progress, bool deleteNonPackageFiles, CancellationToken cancellationToken = default)
+    public static async Task InstallAsync(HttpClient client, Uri cloudUri, DirectoryInfo installDirectory, IProgress<InstallProgress> progress, bool deleteNonPackageFiles, CancellationToken cancellationToken = default)
     {
         progress?.Report(new InstallProgress("Loading package.json", 0, 0));
         Package package = await client.GetFromJsonAsync<Package>(cloudUri, cancellationToken).ConfigureAwait(false);
@@ -34,8 +22,8 @@ static class Installer
 
         if (deleteNonPackageFiles)
         {
-            List<string> localPackageFiles = [.. package.Files.Select(f => Path.Combine(root.FullName, f.RelativePath.Replace('/', Path.DirectorySeparatorChar)))];
-            foreach (FileInfo file in root.EnumerateFiles("*", SearchOption.AllDirectories))
+            List<string> localPackageFiles = [.. package.Files.Select(f => Path.Combine(installDirectory.FullName, f.RelativePath.Replace('/', Path.DirectorySeparatorChar)))];
+            foreach (FileInfo file in installDirectory.EnumerateFiles("*", SearchOption.AllDirectories))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (!localPackageFiles.Any(f => f == file.FullName))
@@ -53,7 +41,7 @@ static class Installer
             int lastFileProgress = 0;
 
             progress?.Report(new InstallProgress($"Scanning: {file.RelativePath}", lastFileProgress, lastTotalProgress));
-            if (!file.Installed(root))
+            if (!file.Installed(installDirectory))
             {
                 string fileUri = cloudUri.ToString();
                 fileUri = fileUri[..(fileUri.LastIndexOf('/') + 1)] + $"v{package.Version}/" + file.RelativePath + Constants.PACKAGE_FILE_EXT;
@@ -66,16 +54,15 @@ static class Installer
                 long fileSize = response.Content.Headers.ContentLength ?? -1;
                 long fileDownloaded = 0;
 
-                FileInfo dstFile = new (Path.Combine(root.FullName, file.RelativePath.Replace('/', Path.DirectorySeparatorChar)));
+                FileInfo dstFile = new (Path.Combine(installDirectory.FullName, file.RelativePath.Replace('/', Path.DirectorySeparatorChar)));
                 FileInfo tmpFile = new (dstFile.FullName + Constants.PACKAGE_FILE_EXT);
                 tmpFile.Directory.Create();
                 if (tmpFile.Exists)
                     tmpFile.Delete();
 
-                
-                //4096 is STILL the file stream default buffer size in .net9 in 2025
-                byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
-                await using (FileStream stream = new (tmpFile.FullName, FileMode.Create, FileAccess.Write, FileShare.None, buffer.Length, true))
+
+                byte[] buffer = ArrayPool<byte>.Shared.Rent(Constants.FILE_BUFFER_SIZE);
+                await using (FileStream stream = new (tmpFile.FullName, FileMode.Create, FileAccess.Write, FileShare.None, Constants.FILE_BUFFER_SIZE, true))
                 {
                     try
                     {

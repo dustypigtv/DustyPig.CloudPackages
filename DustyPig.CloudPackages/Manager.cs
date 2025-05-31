@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -7,6 +8,15 @@ namespace DustyPig.CloudPackages;
 
 public static class Manager
 {
+    static HttpClient _defaultClient = null;
+
+    static HttpClient GetHttpClient()
+    {
+        _defaultClient ??= new HttpClient();
+        return _defaultClient;
+    }
+
+
     /// <summary>
     /// Creates a cloud package
     /// </summary>
@@ -21,6 +31,23 @@ public static class Manager
     /// <summary>
     /// Adds package files from the cloud to the local install
     /// </summary>
-    public static Task InstallAsync(Uri cloudUri, DirectoryInfo root, IProgress<InstallProgress> progress = null, bool deleteNonPackageFiles = false, CancellationToken cancellationToken = default) =>
-        Installer.InstallAsync(cloudUri, root, progress, deleteNonPackageFiles, cancellationToken);
+    /// <param name="cloudUri">https path to package.json</param>
+    /// <param name="installDirectory"><see cref="DirectoryInfo"/> target where the package will be installed</param>
+    /// <param name="progress">Optional <see cref="IProgress{InstallProgress}"/> to track install progress</param>
+    /// <param name="deleteNonPackageFiles">Optionally delete all non-package files in the <paramref name="installDirectory"/>. Default is false/></param>
+    public static Task InstallAsync(Uri cloudUri, DirectoryInfo installDirectory, IProgress<InstallProgress> progress = null, bool deleteNonPackageFiles = false, CancellationToken cancellationToken = default) =>
+        Installer.InstallAsync(GetHttpClient(), cloudUri, installDirectory, progress, deleteNonPackageFiles, cancellationToken);
+
+
+    /// <summary>
+    /// Adds package files from the cloud to the local install using the supplied <see cref="HttpClient"/>
+    /// </summary>
+    /// <param name="client"><see cref="HttpClient"/> to use for downloading files. Usefull if you need ot configure credentials</param>
+    /// <param name="cloudUri">https path to package.json</param>
+    /// <param name="installDirectory"><see cref="DirectoryInfo"/> target where the package will be installed</param>
+    /// <param name="progress">Optional <see cref="IProgress{InstallProgress}"/> to track install progress</param>
+    /// <param name="deleteNonPackageFiles">Optionally delete all non-package files in the <paramref name="installDirectory"/>. Default is false/></param>
+    public static Task InstallAsync(HttpClient client, Uri cloudUri, DirectoryInfo installDirectory, IProgress<InstallProgress> progress = null, bool deleteNonPackageFiles = false, CancellationToken cancellationToken = default) =>
+        Installer.InstallAsync(client, cloudUri, installDirectory, progress, deleteNonPackageFiles, cancellationToken);
+
 }
