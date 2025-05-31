@@ -12,7 +12,7 @@ namespace DustyPig.CloudPackages;
 
 static class Installer
 {
-    public static async Task InstallAsync(HttpClient client, Uri cloudUri, DirectoryInfo installDirectory, IProgress<InstallProgress> progress, bool deleteNonPackageFiles, CancellationToken cancellationToken = default)
+    public static async Task Install(HttpClient client, Uri cloudUri, DirectoryInfo installDirectory, IProgress<InstallProgress> progress, bool deleteNonPackageFiles, CancellationToken cancellationToken)
     {
         progress?.Report(new InstallProgress("Loading package.json", 0, 0));
         Package package = await client.GetFromJsonAsync<Package>(cloudUri, cancellationToken).ConfigureAwait(false);
@@ -37,7 +37,7 @@ static class Installer
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            int lastTotalProgress = InstallPercent(totalDownloaded, totalSize);
+            int lastTotalProgress = CalcPercent(totalDownloaded, totalSize);
             int lastFileProgress = 0;
 
             progress?.Report(new InstallProgress($"Scanning: {file.RelativePath}", lastFileProgress, lastTotalProgress));
@@ -77,8 +77,8 @@ static class Installer
                             if (progress != null)
                             {
                                 fileDownloaded += read;
-                                int newTotalProgress = InstallPercent(totalDownloaded + fileDownloaded, totalSize);
-                                int newFileProgress = InstallPercent(fileDownloaded, fileSize);
+                                int newTotalProgress = CalcPercent(totalDownloaded + fileDownloaded, totalSize);
+                                int newFileProgress = CalcPercent(fileDownloaded, fileSize);
                                 if (newTotalProgress > lastTotalProgress || newFileProgress > lastFileProgress)
                                 {
                                     progress.Report(new InstallProgress(
@@ -105,7 +105,7 @@ static class Installer
 
 
                 totalDownloaded += file.FileSize; 
-                progress?.Report(new InstallProgress($"Downloading: {file.RelativePath}", 100, InstallPercent(totalDownloaded + fileDownloaded, totalSize)));
+                progress?.Report(new InstallProgress($"Downloading: {file.RelativePath}", 100, CalcPercent(totalDownloaded + fileDownloaded, totalSize)));
             }
 
             totalDownloaded += file.FileSize;
@@ -115,9 +115,40 @@ static class Installer
     }
 
 
+    public static async Task UnInstall(HttpClient client, Uri cloudUri, DirectoryInfo installDirectory, IProgress<InstallProgress> progress, CancellationToken cancellationToken)
+    {
+        progress?.Report(new InstallProgress("Loading package.json", 0, 0));
+        Package package = await client.GetFromJsonAsync<Package>(cloudUri, cancellationToken).ConfigureAwait(false);
+
+        int prevProgress = -1;
+        for(int i = 0; i < package.Files.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            PackageFile file = package.Files[i];
+
+            if (progress != null)
+            {
+                int newProgress = CalcPercent(i, package.Files.Count);
+                if (newProgress > prevProgress)
+                {
+                    prevProgress = newProgress;
+                    progress?.Report(new InstallProgress("Deleting: " + file.RelativePath, newProgress, newProgress));
+                }
+            }
+
+            FileInfo dstFile = new(Path.Combine(installDirectory.FullName, file.RelativePath.Replace('/', Path.DirectorySeparatorChar)));
+            if (dstFile.Exists)
+                dstFile.Delete();
+
+            //If the files parent directory is empty, delete it
+            try { dstFile.Directory.Delete(false); }
+            catch { }
+        }
+    }
 
 
-    static int InstallPercent(double progress, double size)
+    static int CalcPercent(double progress, double size)
     {
         try
         {
