@@ -9,7 +9,6 @@ static class SHA256Helper
     public static string Compute(Stream stream)
     {
         using SHA256 sha256 = SHA256.Create();
-        byte[] hash = sha256.ComputeHash(stream);
-        return Convert.ToHexString(hash);
+        return Convert.ToHexString(sha256.ComputeHash(stream));
     }
 }
