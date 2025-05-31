@@ -26,7 +26,7 @@
 		<EmbedUntrackedSources>true</EmbedUntrackedSources>
 
 		<!-- Leave the revision as zero, it will be set by github actions -->
-		<Version>1.0.0.0</Version>
+		<Version>2.0.0.0</Version>
 	</PropertyGroup>
 
 	<ItemGroup>
